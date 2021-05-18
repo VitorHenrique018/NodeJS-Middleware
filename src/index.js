@@ -12,35 +12,65 @@ const users = [];
 function checksExistsUserAccount(request, response, next) {
   const { username } = request.headers;
 
+  const index = users.find(user => username === user.username);
+
+  if (!index) {
+    return response.status(404).json({ error: "User does not exist!" });
+  }
+
+  request.user = index;
+
+  return next();
+}
+
+function checksCreateTodosUserAvailability(request, response, next) {
+  const { user } = request;
+
+  const { pro, todos } = user;
+
+  if (!pro && todos.length > 9) {
+    return response.status(403).json({ error: "Todo more than 10" });
+  }
+
+  return next();
+}
+
+function checksTodoExists(request, response, next) {
+  const { username } = request.headers;
+  const { id } = request.params;
+
+  if (!validate(id)) {
+    return response.status(400).json({ error: "Id is not a valid UUID!" });
+  }
+
   const userFound = users.find(user => username === user.username);
 
   if (!userFound) {
     return response.status(404).json({ error: "User does not exist!" });
   }
 
+  const todoFound = userFound.todos.find(todo => id === todo.id);
+
+  if (!todoFound) {
+    return response.status(404).json({ error: "Todo does not exist!" });
+  }
+
+  request.todo = todoFound;
   request.user = userFound;
 
   return next();
 }
 
-function checksCreateTodosUserAvailability(request, response, next) {
-  // Complete aqui
-}
-
-function checksTodoExists(request, response, next) {
-  // Complete aqui
-}
-
 function findUserById(request, response, next) {
   const { id } = request.params;
 
-  const userFound = users.find(user => id === user.id);
+  const index = users.find(user => id === user.id);
 
-  if (!userFound) {
+  if (!index) {
     return response.status(404).json({ error: "User does not exist!" });
   }
 
-  request.user = userFound;
+  request.user = index;
 
   return next();
 }
@@ -48,11 +78,12 @@ function findUserById(request, response, next) {
 app.post('/users', (request, response) => {
   const { name, username } = request.body;
 
-  const userAlreadyExists = users.some((index) => index.username === username) 
+  const usernameAlreadyExists = users.some((user) => user.username === username);
 
-  if(userAlreadyExists) {
-    return response.status(400).json({error: "Users Already Exists"})
+  if (usernameAlreadyExists) {
+    return response.status(400).json({ error: 'Username already exists' });
   }
+
   const user = {
     id: uuidv4(),
     name,
@@ -107,7 +138,6 @@ app.post('/todos', checksExistsUserAccount, checksCreateTodosUserAvailability, (
   return response.status(201).json(newTodo);
 });
 
-
 app.put('/todos/:id', checksTodoExists, (request, response) => {
   const { title, deadline } = request.body;
   const { todo } = request;
@@ -132,7 +162,7 @@ app.delete('/todos/:id', checksExistsUserAccount, checksTodoExists, (request, re
   const todoIndex = user.todos.indexOf(todo);
 
   if (todoIndex === -1) {
-    return response.status(404).json({ error: 'Todo not found' });
+    return response.status(404).json({ error: 'Todo not exist' });
   }
 
   user.todos.splice(todoIndex, 1);
